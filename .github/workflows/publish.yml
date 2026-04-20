@@ -1,0 +1,207 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Where to publish the package"
+        required: true
+        default: testpypi
+        type: choice
+        options:
+          - testpypi
+          - pypi
+      create_release:
+        description: "Create a GitHub Release (applies only when publishing to PyPI)"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  prepare:
+    name: Resolve version and publish mode
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      target_repository: ${{ steps.target.outputs.target_repository }}
+      should_publish: ${{ steps.decision.outputs.should_publish }}
+      skip_reason: ${{ steps.decision.outputs.skip_reason }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read package version
+        id: version
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          pyproject_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+
+          init_text = Path("src/gemm/__init__.py").read_text()
+          match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, re.MULTILINE)
+          if match is None:
+              raise SystemExit("Could not find __version__ in src/gemm/__init__.py")
+          package_version = match.group(1)
+
+          if pyproject_version != package_version:
+              raise SystemExit(
+                  f"Version mismatch: pyproject={pyproject_version!r}, package={package_version!r}"
+              )
+
+          output_path = Path(os.environ["GITHUB_OUTPUT"])
+          with output_path.open("a", encoding="utf-8") as output_file:
+              output_file.write(f"version={pyproject_version}\n")
+              output_file.write(f"tag=v{pyproject_version}\n")
+          print(f"Resolved version {pyproject_version}")
+          PY
+
+      - name: Resolve target repository
+        id: target
+        env:
+          TARGET_REPOSITORY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.repository || 'pypi' }}
+        run: |
+          echo "target_repository=${TARGET_REPOSITORY}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether version tag already exists
+        id: tag_check
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag }}
+        run: |
+          if git ls-remote --tags --refs origin "refs/tags/${TAG_NAME}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide whether to publish
+        id: decision
+        env:
+          TARGET_REPOSITORY: ${{ steps.target.outputs.target_repository }}
+          TAG_EXISTS: ${{ steps.tag_check.outputs.exists }}
+        run: |
+          should_publish=true
+          skip_reason=""
+
+          if [ "$TARGET_REPOSITORY" = "pypi" ] && [ "$TAG_EXISTS" = "true" ]; then
+            should_publish=false
+            skip_reason="Version tag already exists on origin"
+          fi
+
+          echo "should_publish=${should_publish}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${skip_reason}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build distribution
+    needs: prepare
+    if: needs.prepare.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package metadata
+        run: python -m twine check dist/*
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_publish == 'true' && needs.prepare.outputs.target_repository == 'testpypi'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_publish == 'true' && needs.prepare.outputs.target_repository == 'pypi'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  release:
+    name: Create GitHub Release
+    needs: [prepare, build, publish-pypi]
+    if: needs.prepare.outputs.should_publish == 'true' && needs.prepare.outputs.target_repository == 'pypi' && (github.event_name == 'push' || github.event.inputs.create_release == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create release and upload artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            dist/*
+
+  skip:
+    name: Skip publish
+    needs: prepare
+    if: needs.prepare.outputs.should_publish != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain skip
+        run: |
+          echo "Skipping publish: ${{ needs.prepare.outputs.skip_reason }}"
