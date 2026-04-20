@@ -89,9 +89,7 @@ Configure a Trusted Publisher in both PyPI and TestPyPI:
 1. Project: `gemm-engine`
 2. Repository: `Gemm-App/Gemm-Engine`
 3. Workflow: `publish.yml`
-4. Environment names:
-   - PyPI: `pypi`
-   - TestPyPI: `testpypi`
+4. Environment: leave empty.
 
 ### Automatic release on push to `main`
 

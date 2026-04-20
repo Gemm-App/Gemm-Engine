@@ -137,7 +137,6 @@ jobs:
     needs: [prepare, build]
     if: needs.prepare.outputs.should_publish == 'true' && needs.prepare.outputs.target_repository == 'testpypi'
     runs-on: ubuntu-latest
-    environment: testpypi
     permissions:
       id-token: write
     steps:
@@ -159,7 +158,6 @@ jobs:
     needs: [prepare, build]
     if: needs.prepare.outputs.should_publish == 'true' && needs.prepare.outputs.target_repository == 'pypi'
     runs-on: ubuntu-latest
-    environment: pypi
     permissions:
       id-token: write
     steps:
