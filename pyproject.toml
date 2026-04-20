@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gemm-engine"
+version = "0.1.0"
+description = "Open-source framework for multi-brand robot fleet integration"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Eitan Feldman" },
+    { name = "Guido Jacofsky" },
+    { name = "Matias Tenenbaum" },
+    { name = "Martin Duran" },
+]
+keywords = ["robotics", "fleet", "automation", "multi-brand", "framework", "adapter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.5",
+]
+dev = [
+    "gemm-engine[testing]",
+    "gemm-engine[docs]",
+    "mypy>=1.8",
+    "ruff>=0.3",
+    "black>=24.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gemm"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = ["-ra", "--strict-markers"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gemm"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/gemm"]
+warn_unused_ignores = true
+warn_redundant_casts = true
