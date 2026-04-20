@@ -4,6 +4,8 @@ site_description: Open-source framework for multi-brand robot fleet integration
 
 theme:
   name: material
+  custom_dir: overrides
+  favicon: img/favicon.ico
   palette:
     - scheme: default
       primary: indigo
