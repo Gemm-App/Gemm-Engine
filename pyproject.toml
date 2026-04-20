@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gemm-engine"
-version = "0.1.1"
+version = "0.1.0"
 description = "Open-source framework for multi-brand robot fleet integration"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
