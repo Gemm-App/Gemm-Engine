@@ -1,4 +1,5 @@
-site_name: Gemm Engine
+site_name: Gemm
+repo_url: https://github.com/Gemm-App/Gemm-Engine
 site_description: Open-source framework for multi-brand robot fleet integration
 
 theme:
