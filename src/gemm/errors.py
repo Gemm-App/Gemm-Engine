@@ -31,3 +31,15 @@ class TaskFailed(GemmError):
 
 class EngineClosed(GemmError):
     """Operation was attempted on an Engine that has already been closed."""
+
+
+class SensorError(GemmError):
+    """Base exception for sensor-related failures."""
+
+
+class SensorNotAvailable(SensorError):
+    """The adapter does not support the requested sensor.
+
+    Raise this from ``get_sensor()`` when the sensor name is unknown or the
+    hardware is not present on the connected robot.
+    """

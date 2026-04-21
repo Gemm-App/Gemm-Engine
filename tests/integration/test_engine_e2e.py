@@ -1,12 +1,21 @@
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 
-from gemm import Engine, EngineClosed, Pose, TaskStatus
+from gemm import Engine, EngineClosed, Pose, SensorNotAvailable, TaskStatus
 from gemm.adapters import MockAdapter
 from gemm.errors import AdapterConnectionError, AdapterNotRegistered
-from gemm.types import RobotState, TaskResult
+from gemm.types import RobotState, SensorReading, TaskResult
+
+
+def _stub_get_sensor(sensor: str) -> Any:
+    raise SensorNotAvailable(sensor)
+
+
+def _stub_subscribe(sensor: str, callback: Callable[[SensorReading], None]) -> Callable[[], None]:
+    raise SensorNotAvailable(sensor)
 
 
 @pytest.mark.asyncio
@@ -99,6 +108,9 @@ async def test_engine_surfaces_adapter_exceptions_as_task_failures():
         async def execute(self, action: str, params: dict[str, Any]) -> TaskResult:
             raise RuntimeError("simulated failure")
 
+        get_sensor = _stub_get_sensor
+        subscribe = _stub_subscribe
+
     async with Engine() as engine:
         await engine.register(RaisingAdapter())
 
@@ -126,6 +138,9 @@ async def test_engine_register_rolls_back_on_connect_failure():
 
         async def execute(self, action: str, params: dict[str, Any]) -> TaskResult:
             raise NotImplementedError
+
+        get_sensor = _stub_get_sensor
+        subscribe = _stub_subscribe
 
     async with Engine() as engine:
         with pytest.raises(ConnectionError):

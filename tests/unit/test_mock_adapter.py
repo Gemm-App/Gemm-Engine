@@ -1,7 +1,8 @@
 import pytest
 
-from gemm import AdapterConnectionError, Pose, TaskStatus
+from gemm import AdapterConnectionError, Pose, SensorNotAvailable, TaskStatus
 from gemm.adapters import Adapter, MockAdapter
+from gemm.types import BatteryState, IMUData, RobotOdometry
 
 
 @pytest.fixture
@@ -78,3 +79,95 @@ async def test_execution_delay_awaits():
     await slow.connect()
     result = await slow.execute("noop", {})
     assert result.ok
+
+
+# ------------------------------------------------------------------ #
+# Sensor tests                                                        #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.asyncio
+async def test_get_sensor_battery_returns_battery_state(adapter: MockAdapter):
+    await adapter.connect()
+    reading = await adapter.get_sensor("battery")
+    assert isinstance(reading, BatteryState)
+    assert 0.0 <= reading.soc <= 1.0
+    assert reading.voltage > 0
+
+
+@pytest.mark.asyncio
+async def test_get_sensor_imu_returns_imu_data(adapter: MockAdapter):
+    await adapter.connect()
+    reading = await adapter.get_sensor("imu")
+    assert isinstance(reading, IMUData)
+    assert len(reading.quaternion) == 4
+    assert len(reading.rpy) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_sensor_odometry_returns_robot_odometry(adapter: MockAdapter):
+    await adapter.connect()
+    reading = await adapter.get_sensor("odometry")
+    assert isinstance(reading, RobotOdometry)
+    assert len(reading.position) == 3
+    assert len(reading.orientation) == 4
+
+
+@pytest.mark.asyncio
+async def test_get_sensor_unknown_raises(adapter: MockAdapter):
+    await adapter.connect()
+    with pytest.raises(SensorNotAvailable):
+        await adapter.get_sensor("lidar")
+
+
+@pytest.mark.asyncio
+async def test_get_sensor_before_connect_raises(adapter: MockAdapter):
+    with pytest.raises(AdapterConnectionError):
+        await adapter.get_sensor("battery")
+
+
+@pytest.mark.asyncio
+async def test_subscribe_returns_callable(adapter: MockAdapter):
+    await adapter.connect()
+    unsubscribe = adapter.subscribe("battery", lambda _: None)
+    assert callable(unsubscribe)
+    unsubscribe()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_callback_fired_by_fire_sensor(adapter: MockAdapter):
+    await adapter.connect()
+    received = []
+    adapter.subscribe("battery", received.append)
+    reading = BatteryState(soc=0.8, voltage=24.0, current=-2.0)
+    adapter._fire_sensor("battery", reading)
+    assert received == [reading]
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_stops_callbacks(adapter: MockAdapter):
+    await adapter.connect()
+    received = []
+    unsubscribe = adapter.subscribe("battery", received.append)
+    unsubscribe()
+    adapter._fire_sensor("battery", BatteryState(soc=0.5, voltage=24.0, current=-1.0))
+    assert received == []
+
+
+@pytest.mark.asyncio
+async def test_subscribe_unknown_sensor_raises(adapter: MockAdapter):
+    await adapter.connect()
+    with pytest.raises(SensorNotAvailable):
+        adapter.subscribe("lidar", lambda _: None)
+
+
+@pytest.mark.asyncio
+async def test_disconnect_clears_subscriptions(adapter: MockAdapter):
+    await adapter.connect()
+    received = []
+    adapter.subscribe("battery", received.append)
+    await adapter.disconnect()
+    # After reconnect, old subscription is gone
+    await adapter.connect()
+    adapter._fire_sensor("battery", BatteryState(soc=1.0, voltage=25.0, current=0.0))
+    assert received == []

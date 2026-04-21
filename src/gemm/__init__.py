@@ -10,10 +10,24 @@ from gemm.errors import (
     EngineClosed,
     GemmError,
     InvalidAction,
+    SensorError,
+    SensorNotAvailable,
     TaskFailed,
 )
 from gemm.tasks.task import Task
-from gemm.types import Pose, RobotState, TaskResult, TaskStatus
+from gemm.types import (
+    BatteryState,
+    IMUData,
+    LiDARScan,
+    MotorState,
+    Pose,
+    RobotOdometry,
+    RobotState,
+    SensorReading,
+    TaskResult,
+    TaskStatus,
+    VideoFrame,
+)
 
 __version__ = "0.1.1"
 
@@ -23,15 +37,24 @@ __all__ = [
     "AdapterConnectionError",
     "AdapterError",
     "AdapterNotRegistered",
+    "BatteryState",
     "Engine",
     "EngineClosed",
     "GemmError",
+    "IMUData",
     "InvalidAction",
+    "LiDARScan",
+    "MotorState",
     "Pose",
+    "RobotOdometry",
     "RobotState",
+    "SensorError",
+    "SensorNotAvailable",
+    "SensorReading",
     "Task",
     "TaskFailed",
     "TaskResult",
     "TaskStatus",
+    "VideoFrame",
     "__version__",
 ]
