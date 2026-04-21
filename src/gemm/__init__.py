@@ -15,7 +15,7 @@ from gemm.errors import (
 from gemm.tasks.task import Task
 from gemm.types import Pose, RobotState, TaskResult, TaskStatus
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Adapter",
