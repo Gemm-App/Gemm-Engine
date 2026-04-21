@@ -40,5 +40,6 @@ nav:
   - Concepts:
     - Adapters: concepts/adapters.md
     - Tasks: concepts/tasks.md
+    - Sensors: concepts/sensors.md
   - Guides:
     - Building an adapter: guides/building-an-adapter.md
